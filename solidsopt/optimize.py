@@ -4,8 +4,8 @@ from matplotlib import colors
 import numpy as np 
 from scipy.sparse.linalg import spsolve
 
-from Utils.beams import * 
-from Utils.solver import * 
+from solidsopt.Utils.beams import * 
+from solidsopt.Utils.solver import * 
 
 import solidspy.assemutil as ass 
 import solidspy.postprocesor as pos 

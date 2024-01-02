@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.1' 
+VERSION = '0.0.8' 
 DESCRIPTION = 'This package is made to perfome topology optimization of 2D solids'
 LONG_DESCRIPTION = 'This package is made to perfome topology optimization of 2D solids'
 
