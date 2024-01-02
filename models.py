@@ -7,11 +7,14 @@ from tensorflow.keras import layers
 import tensorflow as tf
 
 # %% CNN architecture
-def CNN_model(num_channels):
+def CNN_model(input_shape):
+    '''
+    Load the CNN model architecture
+    '''
     model = Sequential()
 
     # Layers down-sampling
-    model.add(Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(61, 61, num_channels)))
+    model.add(Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=input_shape))
     model.add(MaxPooling2D((2, 2)))
     model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
     model.add(MaxPooling2D((2, 2)))
@@ -31,9 +34,12 @@ def CNN_model(num_channels):
     return model
 
 # %% CNN with U-NET architecture
-def UNN_model(num_channels):
+def UNN_model(input_shape):
+    '''
+    Load the U-NET model architecture
+    '''
     # Input layer
-    input_tensor = Input(shape=(61, 61, num_channels))
+    input_tensor = Input(shape=input_shape)
     print("After Initial Convolution:", input_tensor.shape)
 
     # Initial Convolution Layer (No Padding)
@@ -148,7 +154,20 @@ def decoding_block(input_layer, filters):
     x = layers.BatchNormalization()(x)
     return x
 
-def ViT_model(input_shape, patch_size, num_patches, projection_dim, num_heads, transformer_units, transformer_layers):
+def ViT_model(input_shape):
+    '''
+    load the ViT model architecture with CNN decoder
+    '''
+    image_size = 60  # We'll resize input images to this size
+    patch_size = 10  # Size of the patches to be extract from the input images
+    num_patches = (image_size // patch_size) ** 2
+    projection_dim = 64
+    num_heads = 12
+    transformer_units = [
+        projection_dim * 2,
+        projection_dim,
+    ]  # Size of the transformer layers
+    transformer_layers = 15
     inputs = layers.Input(shape=input_shape)
     initial = layers.Conv2D(2, kernel_size=(2, 2), activation='relu', padding='valid')(inputs)
     # Create patches.

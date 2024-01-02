@@ -1,56 +1,66 @@
-import matplotlib.pyplot as plt # Package for plotting
-import numpy as np # Package for scientific computing
+# %%
+import matplotlib.pyplot as plt 
+from matplotlib import colors
+import numpy as np 
+from scipy.sparse.linalg import spsolve
 
-from Utils.beams import * # Functions for mesh generation
+from Utils.beams import * 
+from Utils.solver import * 
 
-from Utils.ESO_utils import * # Fucntions for FEM analysis and postprocessing
-from Utils.BESO_utils import * # Fucntions for FEM analysis and postprocessing
-from Utils.SIMP_utils import *
-
-import solidspy.postprocesor as pos # SolidsPy package for postprocessing
-
+import solidspy.assemutil as ass 
+import solidspy.postprocesor as pos 
+np.seterr(divide='ignore', invalid='ignore') 
 
 # %% ESO stress based
 
-def ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, V_opt, plot=False):
-    length = 20
-    height = 10
-    nx = 50
-    ny= 20
-    dirs = np.array([[0,-1]])
-    positions = np.array([[10,1]])
+def ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, plot=False):
+    nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
     elsI = np.copy(els)
 
-    nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
+    # System assembly
+    assem_op, IBC, neq = ass.DME(nodes[:, -2:], els, ndof_el_max=8)
+    stiff_mat, _ = ass.assembler(els, mats, nodes[:, :3], neq, assem_op)
+    rhs_vec = ass.loadasem(loads, IBC, neq)
 
-    IBC, UG = preprocessing(nodes, mats, els, loads) # Calculate boundary conditions and global stiffness matrix
-    UCI, E_nodesI, S_nodesI = postprocessing(nodes, mats[:,:2], els, IBC, UG) # Calculate displacements, strains and stresses
+    # System solution
+    disp = spsolve(stiff_mat, rhs_vec)
+    UCI = pos.complete_disp(IBC, nodes, disp)
+    E_nodesI, S_nodesI = pos.strain_nodes(nodes, els, mats[:,:2], UCI)
 
-    niter = 200
-    RR = 0.001 # Initial removal ratio
-    ER = 0.005 # Removal ratio increment
-    V_opt = volume(els, length, height, nx, ny) * 0.50 # Optimal volume
+    V_opt = volume(els, length, height, nx, ny).sum() * volfrac # Optimal volume
 
     ELS = None
     for _ in range(niter):
+        print("Number of elements: {}".format(els.shape[0]))
 
         # Check equilibrium
-        if not is_equilibrium(nodes, mats, els, loads) or volume(els, length, height, nx, ny) < V_opt: break  # Check equilibrium/volume and stop if not
+        if not np.allclose(stiff_mat.dot(disp)/stiff_mat.max(), rhs_vec/stiff_mat.max()) or volume(els, length, height, nx, ny).sum() < V_opt: 
+            print('hollaa')
+            break
+
         ELS = els
         
-        # FEW analysis
-        IBC, UG = preprocessing(nodes, mats, els, loads) # Calculate boundary conditions and global stiffness matrix
-        UC, E_nodes, S_nodes = postprocessing(nodes, mats[:,:2], els, IBC, UG) # Displacements, strains and stresses
+        # System assembly
+        assem_op, IBC, neq = ass.DME(nodes[:, -2:], els, ndof_el_max=8)
+        stiff_mat, _ = ass.assembler(els, mats, nodes[:, :3], neq, assem_op)
+        rhs_vec = ass.loadasem(loads, IBC, neq)
+
+        # System solution
+        disp = spsolve(stiff_mat, rhs_vec)
+        UC = pos.complete_disp(IBC, nodes, disp)
+        E_nodes, S_nodes = pos.strain_nodes(nodes, els, mats[:,:2], UC)
         E_els, S_els = strain_els(els, E_nodes, S_nodes) # Calculate strains and stresses in elements
+
+
         vons = np.sqrt(S_els[:,0]**2 - (S_els[:,0]*S_els[:,1]) + S_els[:,1]**2 + 3*S_els[:,2]**2)
 
         # Remove/add elements
         RR_el = vons/vons.max() # Relative stress
         mask_del = RR_el < RR # Mask for elements to be deleted
-        mask_els = protect_els(els, loads, BC) # Mask for elements to be protected
+        mask_els = protect_elsESO(els, loads, BC) # Mask of elements to do not remove
         mask_del *= mask_els  
         els = np.delete(els, mask_del, 0) # Delete elements
-        del_node(nodes, els) # Delete nodes that are not connected to any element
+        del_nodeESO(nodes, els) # Remove nodes
 
         RR += ER
 
@@ -67,71 +77,88 @@ def ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, V_opt, pl
 
 # %% Eso stiff based
 
-def optimization_ESO_stiff():
-    length = 60
-    height = 60
-    nx = 60
-    ny= 40
-    dirs = np.array([[0,-1]])
-    positions = np.array([[10,1]])
+def ESO_stiff(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, plot=False):
     nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
+    elsI= np.copy(els)
 
-    IBC, UG = preprocessing(nodes, mats, els, loads) # Calculate boundary conditions and global stiffness matrix
-    UCI, E_nodesI, S_nodesI = postprocessing(nodes, mats[:,:2], els, IBC, UG) # Calculate displacements, strains and stresses
+    # System assembly
+    assem_op, IBC, neq = ass.DME(nodes[:, -2:], els, ndof_el_max=8)
+    stiff_mat, _ = ass.assembler(els, mats, nodes[:, :3], neq, assem_op)
+    rhs_vec = ass.loadasem(loads, IBC, neq)
+
+    # System solution
+    disp = spsolve(stiff_mat, rhs_vec)
+    UCI = pos.complete_disp(IBC, nodes, disp)
+    E_nodesI, S_nodesI = pos.strain_nodes(nodes, els, mats[:,:2], UCI)
 
     niter = 200
     RR = 0.005 # Initial removal ratio
     ER = 0.05 # Removal ratio increment
-    V_opt = volume(els, length, height, nx, ny) * 0.20 # Optimal volume
+    V_opt = volume(els, length, height, nx, ny).sum() * volfrac # Optimal volume
     ELS = None
     for _ in range(niter):
         # Check equilibrium
-        if not is_equilibrium(nodes, mats, els, loads) or volume(els, length, height, nx, ny) < V_opt: 
-            print('gla')
+        if not np.allclose(stiff_mat.dot(disp)/stiff_mat.max(), rhs_vec/stiff_mat.max()) or volume(els, length, height, nx, ny).sum() < V_opt: 
             break # Check equilibrium/volume and stop if not
         
-        # FEW analysis
-        IBC, UG = preprocessing(nodes, mats, els, loads) # Calculate boundary conditions and global stiffness matrix
-        UC, E_nodes, S_nodes = postprocessing(nodes, mats[:,:2], els, IBC, UG) # Calculate displacements, strains and stresses
+        # System assembly
+        assem_op, IBC, neq = ass.DME(nodes[:, -2:], els, ndof_el_max=8)
+        stiff_mat, _ = ass.assembler(els, mats, nodes[:, :3], neq, assem_op)
+        rhs_vec = ass.loadasem(loads, IBC, neq)
+
+        # System solution
+        disp = spsolve(stiff_mat, rhs_vec)
+        UC = pos.complete_disp(IBC, nodes, disp)
+        E_nodes, S_nodes = pos.strain_nodes(nodes, els, mats[:,:2], UC)
+        E_els, S_els = strain_els(els, E_nodes, S_nodes) # Calculate strains and stresses in elements
+        print("Number of elements: {}".format(els.shape[0]))
 
         # Compute Sensitivity number
-        sensi_number = sensi_el(nodes, mats, els, UC) # Sensitivity number
+        sensi_number = sensitivity_elsESO(nodes, mats, els, UC) # Sensitivity number
         mask_del = sensi_number < RR # Mask of elements to be removed
-        mask_els = protect_els(els, loads, BC) # Mask of elements to do not remove
+        mask_els = protect_elsESO(els, loads, BC) # Mask of elements to do not remove
         mask_del *= mask_els # Mask of elements to be removed and not protected
         ELS = els # Save last iteration elements
         
         # Remove/add elements
         els = np.delete(els, mask_del, 0) # Remove elements
-        del_node(nodes, els) # Remove nodes
+        del_nodeESO(nodes, els) # Remove nodes
 
         RR += ER
+
+    if plot:
+        pos.fields_plot(elsI, nodes, UCI, E_nodes=E_nodesI, S_nodes=S_nodesI) # Plot initial mesh
+        pos.fields_plot(ELS, nodes, UC, E_nodes=E_nodes, S_nodes=S_nodes) # Plot optimized mesh
+
+        fill_plot = np.ones(E_nodes.shape[0])
+        plt.figure()
+        tri = pos.mesh2tri(nodes, ELS)
+        plt.tricontourf(tri, fill_plot, cmap='binary')
+        plt.axis("image");
 
 
 # %% BESO
 
-def optimization_BESO():
-    length = 20
-    height = 10
-    nx = 50
-    ny= 20
-    dirs = np.array([[0,-1]])
-    positions = np.array([[21,10]])
+def BESO(length, height, nx, ny, dirs, positions, niter, t, ER, volfrac, plot=False):
     nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
+    elsI = np.copy(els)
 
-    IBC, UG, _ = preprocessing(nodes, mats, els, loads) # Calculate boundary conditions and global stiffness matrix
-    UCI, E_nodesI, S_nodesI = postprocessing(nodes, mats[:,:2], els, IBC, UG) # Calculate displacements, strains and stresses
+    # System assembly
+    assem_op, IBC, neq = ass.DME(nodes[:, -2:], els, ndof_el_max=8)
+    stiff_mat, _ = ass.assembler(els, mats, nodes[:, :3], neq, assem_op)
+    rhs_vec = ass.loadasem(loads, IBC, neq)
 
-    niter = 200
-    ER = 0.005 # Removal ratio increment
-    t = 0.0001 # Threshold for error
+    # System solution
+    disp = spsolve(stiff_mat, rhs_vec)
+    UCI = pos.complete_disp(IBC, nodes, disp)
+    E_nodesI, S_nodesI = pos.strain_nodes(nodes, els, mats[:,:2], UCI)
 
     r_min = np.linalg.norm(nodes[0,1:3] - nodes[1,1:3]) * 1 # Radius for the sensitivity filter
     adj_nodes = adjacency_nodes(nodes, els) # Adjacency nodes
     centers = center_els(nodes, els) # Centers of elements
 
     Vi = volume(els, length, height, nx, ny) # Initial volume
-    V_opt = Vi.sum() * 0.50 # Optimal volume
+    V_opt = Vi.sum() * volfrac # Optimal volume
 
     # Initialize variables.
     ELS = None
@@ -141,24 +168,32 @@ def optimization_BESO():
     error = 1000 
 
     for i in range(niter):
+        print("Number of elements: {}".format(els.shape[0]))
+
         # Calculate the optimal design array elements
         els_del = els[mask].copy() # Elements to be removed
         V = Vi[mask].sum() # Volume of the structure
 
         # Check equilibrium
-        if not is_equilibrium(nodes, mats, els_del, loads):  
-            print('Is not equilibrium')
-            break # Stop the program if the structure is not in equilibrium
+        if not np.allclose(stiff_mat.dot(disp)/stiff_mat.max(), rhs_vec/stiff_mat.max()) or volume(els, length, height, nx, ny).sum() < V_opt: 
+            break
 
         # Storage the solution
         ELS = els_del 
 
-        # FEW analysis
-        IBC, UG, rhs_vec = preprocessing(nodes, mats, els_del, loads) # Calculate boundary conditions and global stiffness matrix
-        UC, E_nodes, S_nodes = postprocessing(nodes, mats[:,:2], els_del, IBC, UG) # Calculate displacements, strains and stresses
+        # System assembly
+        assem_op, IBC, neq = ass.DME(nodes[:, -2:], els, ndof_el_max=8)
+        stiff_mat, _ = ass.assembler(els, mats, nodes[:, :3], neq, assem_op)
+        rhs_vec = ass.loadasem(loads, IBC, neq)
+
+        # System solution
+        disp = spsolve(stiff_mat, rhs_vec)
+        UC = pos.complete_disp(IBC, nodes, disp)
+        E_nodes, S_nodes = pos.strain_nodes(nodes, els, mats[:,:2], UC)
+        E_els, S_els = strain_els(els, E_nodes, S_nodes) # Calculate strains and stresses in elements
 
         # Sensitivity filter
-        sensi_e = sensitivity_els(nodes, mats, els, mask, UC) # Calculate the sensitivity of the elements
+        sensi_e = sensitivity_elsBESO(nodes, mats, els, mask, UC) # Calculate the sensitivity of the elements
         sensi_nodes = sensitivity_nodes(nodes, adj_nodes, centers, sensi_e) # Calculate the sensitivity of the nodes
         sensi_number = sensitivity_filter(nodes, centers, sensi_nodes, r_min) # Perform the sensitivity filter
 
@@ -188,7 +223,7 @@ def optimization_BESO():
         del_node(nodes, els[mask], loads, BC) # Delete nodes
 
         # Calculate the strain energy and storage it 
-        C = 0.5*rhs_vec.T@UG
+        C = 0.5*rhs_vec.T@disp
         C_h[i] = C
         if i > 10: error = C_h[i-5:].sum() - C_h[i-10:-5].sum()/C_h[i-5:].sum()
 
@@ -200,27 +235,29 @@ def optimization_BESO():
         # Save the sensitvity number for the next iteration
         sensi_I = sensi_number.copy()
 
+    if plot:
+        pos.fields_plot(elsI, nodes, UCI, E_nodes=E_nodesI, S_nodes=S_nodesI) # Plot initial mesh
+        pos.fields_plot(ELS, nodes, UC, E_nodes=E_nodes, S_nodes=S_nodes) # Plot optimized mesh
+
+        fill_plot = np.ones(E_nodes.shape[0])
+        plt.figure()
+        tri = pos.mesh2tri(nodes, ELS)
+        plt.tricontourf(tri, fill_plot, cmap='binary')
+        plt.axis("image");
+
 # %% SIMP
 
-def optimization_SIMP(n_elem, volfrac):
+def SIMP(length, height, nx, ny, dirs, positions, niter, penal, plot=False):
     # Initialize variables
-    length = 60
-    height = 60
-    nx = n_elem
-    ny= n_elem
-    niter = 60
-    penal = 3 # Penalization factor
     Emin=1e-9 # Minimum young modulus of the material
     Emax=1.0 # Maximum young modulus of the material
 
-    dirs = np.array([[0,-1], [0,1], [1,0]])
-    positions = np.array([[61,30], [1,30], [30, 1]])
-    nodes, mats, els, loads = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
+    nodes, mats, els, loads, _ = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
 
     # Initialize the design variables
     change = 10 # Change in the design variable
     g = 0 # Constraint
-    rho = volfrac * np.ones(ny*nx, dtype=float) # Initialize the density
+    rho = 0.5 * np.ones(ny*nx, dtype=float) # Initialize the density
     sensi_rho = np.ones(ny*nx) # Initialize the sensitivity
     rho_old = rho.copy() # Initialize the density history
     d_c = np.ones(ny*nx) # Initialize the design change
@@ -249,6 +286,7 @@ def optimization_SIMP(n_elem, volfrac):
             print('Convergence reached')
             break
 
+
         # Change density 
         mats[:,2] = Emin+rho**penal*(Emax-Emin)
 
@@ -274,8 +312,32 @@ def optimization_SIMP(n_elem, volfrac):
         # Compute the change
         change = np.linalg.norm(rho.reshape(nx*ny,1)-rho_old.reshape(nx*ny,1),np.inf)
 
-    plt.ion() 
-    fig,ax = plt.subplots()
-    ax.imshow(-rho.reshape(n_elem,n_elem), cmap='gray', interpolation='none',norm=colors.Normalize(vmin=-1,vmax=0))
-    ax.set_title('Predicted')
-    fig.show()
+        # Check equilibrium
+        if not np.allclose(stiff_mat.dot(disp)/stiff_mat.max(), rhs_vec/stiff_mat.max()):
+            break
+
+    if plot:
+        plt.ion() 
+        fig,ax = plt.subplots()
+        ax.imshow(-rho.reshape(nx,ny), cmap='gray', interpolation='none',norm=colors.Normalize(vmin=-1,vmax=0))
+        ax.set_title('Predicted')
+        fig.show()
+
+if __name__ == "__main__":
+    length = 60
+    height = 60
+    nx = 60
+    ny= 60
+    dirs = np.array([[0,-1]])
+    positions = np.array([[15,1]])
+    RR = 0.001 # Initial removal ratio
+    ER = 0.005 # Removal ratio increment
+    t = 0.0001 # Threshold for error
+    penal = 3 # Penalization factor
+    V_opt = 0.5
+    niter = 200
+    volfrac = 0.5
+
+    #ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, plot=True)
+    #BESO(length, height, nx, ny, dirs, positions, niter, t, ER, volfrac, plot=False)
+    #SIMP(length, height, nx, ny, dirs, positions, niter, penal, plot=True)
