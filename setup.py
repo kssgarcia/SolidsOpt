@@ -24,13 +24,16 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     install_requires=requirements,
-    
-    keywords=['python', 'primer paquete'],
+    url='https://github.com/kssgarcia/SolidsOpt',
+    author='Kevin Sepúlveda-García <kssepulveg@eafit.edu.co>, Nicolas Guarin-Zapata <nguarinz@eafit.edu.co>',
+    author_email='kssepulveg@eafit.edu.co',
+    license='MIT',
+    keywords=['finite-elements', 'scientific-computing', 'deep learning', 'topology', 'optimization'],
     classifiers= [
-        "Development Status :: 3 - Alpha",
-        "Intended Audience :: Education",
-        "Programming Language :: Python :: 3",
-        "Operating System :: MacOS :: MacOS X",
-        "Operating System :: Microsoft :: Windows",
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Education',
+        'Topic :: Scientific/Engineering',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3',
     ],
 )
