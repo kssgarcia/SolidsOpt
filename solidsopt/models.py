@@ -10,6 +10,16 @@ import tensorflow as tf
 def CNN_model(input_shape):
     '''
     Load the CNN model architecture
+
+    Parameters
+    ----------
+    input_shape : tuple
+        The shape of the input image
+
+    Returns
+    -------
+    moodel: tensorflow.keras.models.Model
+        Model architecture
     '''
     model = Sequential()
 
@@ -37,6 +47,16 @@ def CNN_model(input_shape):
 def UNN_model(input_shape):
     '''
     Load the U-NET model architecture
+
+    Parameters
+    ----------
+    input_shape : tuple
+        The shape of the input image
+
+    Returns
+    -------
+    moodel: tensorflow.keras.models.Model
+        Model architecture
     '''
     # Input layer
     input_tensor = Input(shape=input_shape)
@@ -157,6 +177,16 @@ def decoding_block(input_layer, filters):
 def ViT_model(input_shape):
     '''
     load the ViT model architecture with CNN decoder
+
+    Parameters
+    ----------
+    input_shape : tuple
+        The shape of the input image
+
+    Returns
+    -------
+    moodel: tensorflow.keras.models.Model
+        Model architecture
     '''
     image_size = 60  # We'll resize input images to this size
     patch_size = 10  # Size of the patches to be extract from the input images
