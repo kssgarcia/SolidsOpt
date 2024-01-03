@@ -14,6 +14,41 @@ np.seterr(divide='ignore', invalid='ignore')
 # %% ESO stress based
 
 def ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, plot=False):
+    """
+    Performs Evolutionary Structural Optimization (ESO) based on stress for a beam structure.
+
+    Parameters
+    ----------
+    length : float
+        The length of the beam.
+    height : float
+        The height of the beam.
+    nx : int
+        The number of elements in the x direction.
+    ny : int
+        The number of elements in the y direction.
+    dirs : list
+        List of directions.
+    positions : list
+        List of positions.
+    niter : int
+        The number of iterations for the ESO process.
+    RR : float
+        The relative stress threshold for removing elements.
+    ER : float
+        The increment of RR for each iteration.
+    volfrac : float
+        The volume fraction for the optimal structure.
+    plot : bool, optional
+        If True, plot the initial and optimized mesh. Defaults to False.
+
+    Returns
+    -------
+    ELS: ndarray
+        The optimized elements of the structure.
+    nodes: ndarray
+        The optimized nodes of the structure.
+    """
     nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
     elsI = np.copy(els)
 
@@ -74,10 +109,47 @@ def ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, 
         plt.tricontourf(tri, fill_plot, cmap='binary')
         plt.axis("image");
 
+    return ELS, nodes
+
 
 # %% Eso stiff based
 
 def ESO_stiff(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, plot=False):
+    """
+    Performs Evolutionary Structural Optimization (ESO) based on stiff for a beam structure.
+
+    Parameters
+    ----------
+    length : float
+        The length of the beam.
+    height : float
+        The height of the beam.
+    nx : int
+        The number of elements in the x direction.
+    ny : int
+        The number of elements in the y direction.
+    dirs : list
+        List of directions.
+    positions : list
+        List of positions.
+    niter : int
+        The number of iterations for the ESO process.
+    RR : float
+        The relative stress threshold for removing elements.
+    ER : float
+        The increment of RR for each iteration.
+    volfrac : float
+        The volume fraction for the optimal structure.
+    plot : bool, optional
+        If True, plot the initial and optimized mesh. Defaults to False.
+
+    Returns
+    -------
+    ELS: ndarray
+        The optimized elements of the structure.
+    nodes: ndarray
+        The optimized nodes of the structure.
+    """
     nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
     elsI= np.copy(els)
 
@@ -136,10 +208,47 @@ def ESO_stiff(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, p
         plt.tricontourf(tri, fill_plot, cmap='binary')
         plt.axis("image");
 
+    return ELS, nodes
+
 
 # %% BESO
 
 def BESO(length, height, nx, ny, dirs, positions, niter, t, ER, volfrac, plot=False):
+    """
+    Performs Evolutionary Structural Optimization (ESO) based on stiff for a beam structure.
+
+    Parameters
+    ----------
+    length : float
+        The length of the beam.
+    height : float
+        The height of the beam.
+    nx : int
+        The number of elements in the x direction.
+    ny : int
+        The number of elements in the y direction.
+    dirs : list
+        List of directions.
+    positions : list
+        List of positions.
+    niter : int
+        The number of iterations for the ESO process.
+    t : float
+        Threshold for error.
+    ER : float
+        The increment of RR for each iteration.
+    volfrac : float
+        The volume fraction for the optimal structure.
+    plot : bool, optional
+        If True, plot the initial and optimized mesh. Defaults to False.
+
+    Returns
+    -------
+    ELS: ndarray
+        The optimized elements of the structure.
+    nodes: ndarray
+        The optimized nodes of the structure.
+    """
     nodes, mats, els, loads, BC = beam(L=length, H=height, nx=nx, ny=ny, dirs=dirs, positions=positions, n=1)
     elsI = np.copy(els)
 
@@ -245,9 +354,40 @@ def BESO(length, height, nx, ny, dirs, positions, niter, t, ER, volfrac, plot=Fa
         plt.tricontourf(tri, fill_plot, cmap='binary')
         plt.axis("image");
 
+    return ELS, nodes
+
 # %% SIMP
 
 def SIMP(length, height, nx, ny, dirs, positions, niter, penal, plot=False):
+    """
+    Performs Solid Isotropic Material with Penalization (SIMP) for topology optimization.
+
+    Parameters
+    ----------
+    length : float
+        The length of the beam.
+    height : float
+        The height of the beam.
+    nx : int
+        The number of elements in the x direction.
+    ny : int
+        The number of elements in the y direction.
+    dirs : list
+        List of directions.
+    positions : list
+        List of positions.
+    niter : int
+        The number of iterations for the SIMP process.
+    penal : float
+        Penalization factor used in the SIMP method.
+    plot : bool, optional
+        If True, plot the initial and optimized mesh. Defaults to False.
+
+    Returns
+    -------
+    rho: ndarray
+        The optimized density distribution of the structure.
+    """
     # Initialize variables
     Emin=1e-9 # Minimum young modulus of the material
     Emax=1.0 # Maximum young modulus of the material
@@ -323,21 +463,4 @@ def SIMP(length, height, nx, ny, dirs, positions, niter, penal, plot=False):
         ax.set_title('Predicted')
         fig.show()
 
-if __name__ == "__main__":
-    length = 60
-    height = 60
-    nx = 60
-    ny= 60
-    dirs = np.array([[0,-1]])
-    positions = np.array([[15,1]])
-    RR = 0.001 # Initial removal ratio
-    ER = 0.005 # Removal ratio increment
-    t = 0.0001 # Threshold for error
-    penal = 3 # Penalization factor
-    V_opt = 0.5
-    niter = 200
-    volfrac = 0.5
-
-    #ESO_stress(length, height, nx, ny, dirs, positions, niter, RR, ER, volfrac, plot=True)
-    #BESO(length, height, nx, ny, dirs, positions, niter, t, ER, volfrac, plot=False)
-    #SIMP(length, height, nx, ny, dirs, positions, niter, penal, plot=True)
+    return rho
