@@ -19,8 +19,8 @@ load model
 Two repositories were created from this project, one contains the structural optimization algorithms and the other has everything related to the development of deep learning methods.
 
 
-- {{< icon "github" >}}&nbsp;[kssgarcia/DeepLearningOpt](https://github.com/kssgarcia/DeepLearningOpt)
-- {{< icon "github" >}}&nbsp;[kssgarcia/OptTopolgy](https://github.com/kssgarcia/OptTopolgy)
+- [kssgarcia/DeepLearningOpt](https://github.com/kssgarcia/DeepLearningOpt)
+- [kssgarcia/OptTopolgy](https://github.com/kssgarcia/OptTopolgy)
 
 
 ## Topology optimization repo
